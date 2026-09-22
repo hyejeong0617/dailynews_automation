@@ -8,11 +8,18 @@ GitHub Actions에서 매일 이 스크립트 하나만 실행하면 됩니다.
     python run_all.py
 """
 
+import os
+import re
 import sys
 import json
 import subprocess
 
 import importlib.util
+
+
+def extract_video_id(url_or_id: str) -> str:
+    match = re.search(r"(?:v=|youtu\.be/)([0-9A-Za-z_-]{11})", url_or_id)
+    return match.group(1) if match else url_or_id
 
 
 def run(script: str, *args: str) -> None:
@@ -34,15 +41,27 @@ def import_module(path: str, name: str):
 
 
 def main():
-    # 0단계: 새 영상 있는지 확인
     step0 = import_module("00_get_latest_video.py", "step0")
-    has_new_video = step0.main()
-    if not has_new_video:
-        print("처리할 새 영상이 없습니다. 파이프라인을 종료합니다.")
-        return
 
-    with open("latest_video.json", "r", encoding="utf-8") as f:
-        video = json.load(f)
+    # 테스트 모드: OVERRIDE_VIDEO_URL 환경변수나 커맨드라인 인자로 특정 영상을 강제 지정
+    override_url = os.environ.get("OVERRIDE_VIDEO_URL") or (sys.argv[1] if len(sys.argv) > 1 else None)
+
+    if override_url:
+        api_key = os.environ.get("YOUTUBE_API_KEY")
+        video_id = extract_video_id(override_url)
+        video = step0.fetch_video_by_id(api_key, video_id)
+        with open("latest_video.json", "w", encoding="utf-8") as f:
+            json.dump(video, f, ensure_ascii=False, indent=2)
+        print(f"[테스트 모드] 지정한 영상으로 강제 실행: {video['title']}")
+        skip_last_id_update = True
+    else:
+        has_new_video = step0.main()
+        if not has_new_video:
+            print("처리할 새 영상이 없습니다. 파이프라인을 종료합니다.")
+            return
+        with open("latest_video.json", "r", encoding="utf-8") as f:
+            video = json.load(f)
+        skip_last_id_update = False
 
     # 1단계: 자막 추출
     run("01_extract_transcript.py", video["url"])
@@ -56,8 +75,10 @@ def main():
     # 4단계: 아카이브
     run("04_archive.py")
 
-    # 여기까지 전부 성공했을 때만 "처리 완료"로 기록 (중간 실패 시 다음날 재시도됨)
-    step0.save_last_video_id(video["video_id"])
+    # 테스트 모드가 아닐 때만, 전부 성공했을 때 "처리 완료"로 기록
+    # (테스트 모드에서 기록해버리면 나중에 실제 최신 영상이 이 영상이라서 건너뛰게 될 수 있음)
+    if not skip_last_id_update:
+        step0.save_last_video_id(video["video_id"])
     print(f"\n파이프라인 완료: {video['title']}")
 
 

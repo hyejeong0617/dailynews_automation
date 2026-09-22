@@ -4,7 +4,12 @@ on:
   schedule:
     # UTC 21:00 = 한국시간(KST) 06:00. 요일 0(일)~4(목) UTC = 월~금 06:00 KST
     - cron: "0 21 * * 0-4"
-  workflow_dispatch: {}  # Actions 탭에서 수동으로도 실행 가능
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: "테스트용 특정 영상 URL (비워두면 최신 영상 자동 감지)"
+        required: false
+        default: ""
 
 permissions:
   contents: write  # 결과 파일을 리포지토리에 다시 커밋하기 위해 필요
@@ -30,6 +35,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          OVERRIDE_VIDEO_URL: ${{ inputs.video_url }}
         run: python run_all.py
 
       - name: 결과물 커밋 & 푸시 (GitHub Pages 자동 배포 트리거)

@@ -46,6 +46,24 @@ def pick_latest(items: list) -> dict:
     }
 
 
+def fetch_video_by_id(api_key: str, video_id: str) -> dict:
+    """특정 영상 ID의 정보를 직접 조회 (테스트 시 특정 영상을 지정할 때 사용)."""
+    url = "https://www.googleapis.com/youtube/v3/videos"
+    params = {"part": "snippet", "id": video_id, "key": api_key}
+    resp = requests.get(url, params=params, timeout=15)
+    resp.raise_for_status()
+    items = resp.json().get("items", [])
+    if not items:
+        raise ValueError(f"영상을 찾을 수 없습니다: {video_id}")
+    snippet = items[0]["snippet"]
+    return {
+        "video_id": video_id,
+        "title": snippet["title"],
+        "published_at": snippet["publishedAt"],
+        "url": f"https://www.youtube.com/watch?v={video_id}",
+    }
+
+
 def load_last_video_id() -> str | None:
     if os.path.exists(LAST_VIDEO_FILE):
         with open(LAST_VIDEO_FILE, "r", encoding="utf-8") as f:
