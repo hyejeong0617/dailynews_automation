@@ -29,6 +29,18 @@ jobs:
       - name: yt-dlp 및 패키지 설치
         run: pip install -r requirements.txt
 
+      - name: Secret 상태 확인
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+        run: |
+          echo "YouTube secret present: ${{ secrets.YOUTUBE_API_KEY != '' }}"
+          echo "OpenAI secret present: ${{ secrets.OPENAI_API_KEY != '' }}"
+          echo "Notion token present: ${{ secrets.NOTION_TOKEN != '' }}"
+          echo "Notion DB ID present: ${{ secrets.NOTION_DATABASE_ID != '' }}"
+
       - name: 전체 파이프라인 실행
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
