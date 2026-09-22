@@ -1,0 +1,41 @@
+name: 당잠사 데일리 브리핑
+
+on:
+  schedule:
+    # UTC 21:00 = 한국시간(KST) 06:00. 요일 0(일)~4(목) UTC = 월~금 06:00 KST
+    - cron: "0 21 * * 0-4"
+  workflow_dispatch: {}  # Actions 탭에서 수동으로도 실행 가능
+
+permissions:
+  contents: write  # 결과 파일을 리포지토리에 다시 커밋하기 위해 필요
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 리포지토리 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 파이썬 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: yt-dlp 및 패키지 설치
+        run: pip install -r requirements.txt
+
+      - name: 전체 파이프라인 실행
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+        run: python run_all.py
+
+      - name: 결과물 커밋 & 푸시 (GitHub Pages 자동 배포 트리거)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add _posts data last_video_id.txt
+          git diff --cached --quiet && echo "변경 없음, 커밋 생략" || git commit -m "당잠사 브리핑 자동 업데이트 $(date +'%Y-%m-%d')"
+          git push
