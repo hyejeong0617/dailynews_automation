@@ -25,7 +25,6 @@ def download_subtitle(video_url: str, out_dir: str = ".") -> str:
         "--write-auto-sub",
         "--sub-lang", "ko",
         "--sub-format", "vtt",
-        "--cookies", "cookies.txt",
         "--js-runtimes", "node",
         "-o", os.path.join(out_dir, "%(id)s.%(ext)s"),
     ]
