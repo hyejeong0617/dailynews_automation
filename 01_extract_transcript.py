@@ -25,6 +25,8 @@ def download_subtitle(video_url: str, out_dir: str = ".") -> str:
         "--write-auto-sub",      # 없으면 자동생성 자막 사용
         "--sub-lang", "ko",
         "--sub-format", "vtt",
+        "--cookies", "cookies.txt",
+        "--js-runtimes", "node",
         "-o", os.path.join(out_dir, "%(id)s.%(ext)s"),
         video_url,
     ]
