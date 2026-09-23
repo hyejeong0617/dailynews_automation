@@ -12,7 +12,7 @@ on:
         default: ""
 
 permissions:
-  contents: write  # 결과 파일을 리포지토리에 다시 커밋하기 위해 필요
+  contents: write
 
 jobs:
   run-pipeline:
@@ -30,16 +30,23 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Secret 상태 확인
-        env:
-          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
-          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
         run: |
-          echo "YouTube secret present: ${{ secrets.YOUTUBE_API_KEY != '' }}"
+          echo "YouTube API secret present: ${{ secrets.YOUTUBE_API_KEY != '' }}"
           echo "OpenAI secret present: ${{ secrets.OPENAI_API_KEY != '' }}"
           echo "Notion token present: ${{ secrets.NOTION_TOKEN != '' }}"
           echo "Notion DB ID present: ${{ secrets.NOTION_DATABASE_ID != '' }}"
+          echo "YouTube cookies present: ${{ secrets.YOUTUBE_COOKIES != '' }}"
+
+      - name: YouTube 쿠키 파일 복원
+        env:
+          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
+        run: |
+          if [ -z "$YOUTUBE_COOKIES" ]; then
+            echo "YOUTUBE_COOKIES Secret이 비어 있습니다."
+            exit 1
+          fi
+          printf '%s' "$YOUTUBE_COOKIES" | base64 --decode > .youtube_cookies.txt
+          chmod 600 .youtube_cookies.txt
 
       - name: 전체 파이프라인 실행
         env:
@@ -48,9 +55,15 @@ jobs:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
           OVERRIDE_VIDEO_URL: ${{ inputs.video_url }}
+          YOUTUBE_COOKIES_FILE: .youtube_cookies.txt
         run: python run_all.py
 
+      - name: YouTube 쿠키 파일 삭제
+        if: always()
+        run: rm -f .youtube_cookies.txt
+
       - name: 결과물 커밋 & 푸시 (GitHub Pages 자동 배포 트리거)
+        if: success()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
