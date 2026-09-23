@@ -19,18 +19,27 @@ def download_subtitle(video_url: str, out_dir: str = ".") -> str:
     """yt-dlp로 한국어 자막(자동/수동)만 다운로드. 영상 자체는 받지 않음."""
     cmd = [
         "yt-dlp",
-        "--no-playlist",         # URL에 재생목록 정보가 섞여 있어도 해당 영상 1개만 처리
-        "--skip-download",       # 영상은 받지 않고 자막만
-        "--write-sub",           # 수동 자막이 있으면 우선 사용
-        "--write-auto-sub",      # 없으면 자동생성 자막 사용
+        "--no-playlist",
+        "--skip-download",
+        "--write-sub",
+        "--write-auto-sub",
         "--sub-lang", "ko",
         "--sub-format", "vtt",
+        "--js-runtimes", "node",
         "-o", os.path.join(out_dir, "%(id)s.%(ext)s"),
-        video_url,
     ]
+
+    cookies_file = os.getenv("YOUTUBE_COOKIES_FILE")
+    if cookies_file:
+        if not os.path.exists(cookies_file):
+            raise FileNotFoundError(
+                f"YOUTUBE_COOKIES_FILE이 지정됐지만 파일이 없습니다: {cookies_file}"
+            )
+        cmd.extend(["--cookies", cookies_file])
+
+    cmd.append(video_url)
     subprocess.run(cmd, check=True)
 
-    # 다운로드된 .vtt 파일 찾기
     vtt_files = glob.glob(os.path.join(out_dir, "*.ko.vtt"))
     if not vtt_files:
         raise FileNotFoundError(
@@ -45,18 +54,17 @@ def vtt_to_clean_text(vtt_path: str) -> str:
         lines = f.readlines()
 
     text_lines = []
-    seen = set()  # 자동자막 특성상 같은 줄이 중복되는 경우가 많아서 제거
+    seen = set()
     for line in lines:
         line = line.strip()
         if not line:
             continue
         if line.startswith("WEBVTT") or line.startswith("Kind:") or line.startswith("Language:"):
             continue
-        if "-->" in line:  # 타임스탬프 줄
+        if "-->" in line:
             continue
-        if re.match(r"^\d+$", line):  # 순번만 있는 줄
+        if re.match(r"^\d+$", line):
             continue
-        # <c> 같은 스타일 태그 제거
         clean = re.sub(r"<[^>]+>", "", line)
         if clean and clean not in seen:
             seen.add(clean)
@@ -69,7 +77,6 @@ def main():
     if len(sys.argv) >= 2:
         video_url = sys.argv[1]
     else:
-        # 0단계(00_get_latest_video.py)가 만들어둔 latest_video.json에서 자동으로 URL 가져오기
         if not os.path.exists("latest_video.json"):
             print("URL이 없습니다. URL을 직접 넣거나, 먼저 00_get_latest_video.py를 실행하세요.")
             sys.exit(1)
