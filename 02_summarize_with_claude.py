@@ -18,6 +18,7 @@
 import os
 import json
 import datetime
+from zoneinfo import ZoneInfo
 
 from openai import OpenAI
 
@@ -75,11 +76,12 @@ def load_video_info() -> dict:
     if os.path.exists("latest_video.json"):
         with open("latest_video.json", "r", encoding="utf-8") as f:
             info = json.load(f)
-        # published_at 예: "2026-09-22T05:30:00Z" -> 날짜만 추출
-        info["date"] = info["published_at"][:10]
+        # YouTube 게시 시각은 UTC이며, 방송 날짜는 한국시간으로 표시한다.
+        published_at = datetime.datetime.fromisoformat(info["published_at"].replace("Z", "+00:00"))
+        info["date"] = published_at.astimezone(ZoneInfo("Asia/Seoul")).date().isoformat()
         return info
 
-    today = datetime.date.today().isoformat()
+    today = datetime.datetime.now(ZoneInfo("Asia/Seoul")).date().isoformat()
     return {"video_id": None, "title": "", "url": "", "date": today}
 
 
