@@ -34,7 +34,7 @@ def rich(value):
 
 
 def update_page(request, data):
-    props = {"제목": {"title": rich(data["title"])},
+    props = {"제목": {"title": rich(request.get("title") or data["title"])},
              "날짜": {"date": {"start": request["date"]}},
              "처리 상태": {"select": {"name": "완료"}},
              "요약 요청": {"checkbox": False},
