@@ -1,0 +1,8 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+*.vtt
+.youtube_cookies.txt
+transcript.txt
+latest_video.json

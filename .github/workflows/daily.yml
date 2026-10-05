@@ -1,73 +1,41 @@
-name: 당잠사 데일리 브리핑
+name: Requested market news summaries
 
 on:
-  schedule:
-    # UTC 일~목 22:00 = 한국시간 월~금 07:00
-    - cron: "0 22 * * 0-4"
+  push:
+    branches: [main]
+    paths:
+      - 'data/requests/*.json'
   workflow_dispatch:
-    inputs:
-      video_url:
-        description: "테스트용 특정 영상 URL (비워두면 최신 영상 자동 감지)"
-        required: false
-        default: ""
 
 permissions:
   contents: write
 
+concurrency:
+  group: market-news-summary
+  cancel-in-progress: false
+
 jobs:
-  run-pipeline:
+  summarize:
     runs-on: ubuntu-latest
     steps:
-      - name: 리포지토리 체크아웃
-        uses: actions/checkout@v4
-
-      - name: 파이썬 설정
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
         with:
-          python-version: "3.11"
-
-      - name: yt-dlp 및 패키지 설치
-        run: pip install -r requirements.txt
-
-      - name: Secret 상태 확인
-        run: |
-          echo "YouTube API secret present: ${{ secrets.YOUTUBE_API_KEY != '' }}"
-          echo "OpenAI secret present: ${{ secrets.OPENAI_API_KEY != '' }}"
-          echo "Notion token present: ${{ secrets.NOTION_TOKEN != '' }}"
-          echo "Notion DB ID present: ${{ secrets.NOTION_DATABASE_ID != '' }}"
-          echo "YouTube cookies present: ${{ secrets.YOUTUBE_COOKIES != '' }}"
-
-      - name: YouTube 쿠키 파일 복원
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Summarize requested local transcripts
         env:
-          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
-        run: |
-          if [ -z "$YOUTUBE_COOKIES" ]; then
-            echo "YOUTUBE_COOKIES Secret이 비어 있습니다."
-            exit 1
-          fi
-          printf '%s' "$YOUTUBE_COOKIES" | base64 --decode > .youtube_cookies.txt
-          chmod 600 .youtube_cookies.txt
-
-      - name: 전체 파이프라인 실행
-        env:
-          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
-          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
-          OVERRIDE_VIDEO_URL: ${{ inputs.video_url }}
-          YOUTUBE_COOKIES_FILE: .youtube_cookies.txt
-        run: python run_all.py
-
-      - name: YouTube 쿠키 파일 삭제
-        if: always()
-        run: rm -f .youtube_cookies.txt
-
-      - name: 결과물 커밋 & 푸시 (GitHub Pages 자동 배포 트리거)
-        if: success()
+        run: python generate_requested_news.py
+      - name: Publish summaries to GitHub Pages
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add _posts data
-          git add last_video_id.txt 2>/dev/null || true
-          git diff --cached --quiet && echo "변경 없음, 커밋 생략" || git commit -m "당잠사 브리핑 자동 업데이트 $(TZ=Asia/Seoul date +'%Y-%m-%d')"
-          git push
+          git add _posts data/archive.csv data/summary_*.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish requested market news summaries"
+            git push
+          fi

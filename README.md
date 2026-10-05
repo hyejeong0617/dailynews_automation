@@ -1,29 +1,35 @@
-# 당잠사 자동 요약 시스템
+# 당잠사 요청형 요약
 
-한국경제TV "당잠사" 재생목록의 새 영상을 매일 자동으로 찾아서 자막을 추출하고,
-OpenAI로 요약한 뒤 Notion에 저장 + GitHub Pages 블로그에 게시까지 하는 파이프라인입니다.
+보고 싶은 당잠사 영상만 Notion에서 요청합니다. Windows PC의 `MarketNews.bat`가
+한국어 자막을 받아 GitHub에 전송하고, GitHub Actions는 그 자막으로 OpenAI 요약을
+만들어 같은 Notion 행과 GitHub Pages에 기록합니다. 정해진 시간에 영상을 찾거나
+GitHub 서버에서 YouTube에 접속하지 않습니다.
 
-- **블로그**: https://hyejeong0617.github.io/dailynews_automation/
-- **설치/설정 방법**: [SETUP.md](./SETUP.md) 참고
+## 처음 한 번 설정
 
-## 폴더 구조
-```
-00_get_latest_video.py     0단계: 재생목록에서 새 영상 감지 (YouTube API)
-01_extract_transcript.py   1단계: 자막 추출 (yt-dlp)
-02_summarize_with_claude.py 2단계: 요약 (OpenAI API) -> JSON + 블로그 글 생성
-03_save_to_notion.py       3단계: Notion DB에 저장
-04_archive.py               4단계: CSV 아카이브에 누적
-run_all.py                  위 0~4단계를 순서대로 실행하는 마스터 스크립트
-_config.yml                 GitHub Pages(Jekyll) 설정
-index.md                    GitHub Pages 홈페이지
-_posts/                     생성된 블로그 글 (Jekyll이 자동으로 렌더링)
-data/                       구조화 데이터(JSON)와 archive.csv
-.github/workflows/daily.yml GitHub Actions 자동 실행 설정
-```
+1. 저장소를 Windows PC에 `git clone`하고 Python 3.11+, Git, Node.js를 설치합니다.
+2. `python -m pip install -r requirements.txt`는 첫 실행 시 자동으로 수행됩니다.
+3. `.env.example`을 `.env`로 복사하고 `NOTION_TOKEN`을 입력합니다. Notion의
+   `당잠사 뉴스 요약` DB에 해당 Integration을 연결합니다. `.env`는 Git에 올리지 않습니다.
+4. GitHub Actions Secrets에 `OPENAI_API_KEY`와 `NOTION_TOKEN`을 등록합니다.
+   기존 값이 유효하면 재등록할 필요가 없습니다. `YOUTUBE_COOKIES`와
+   `YOUTUBE_API_KEY`는 이 경로에 사용하지 않습니다.
+5. GitHub Pages는 기존처럼 `main` 브랜치의 루트에서 배포합니다. 로컬 Git의
+   `git push` 인증과 Actions의 `contents: write` 권한이 필요합니다.
 
-## 막힐 수 있는 지점
-- **Notion 저장 시 401 오류**: DB 페이지에 Integration을 "연결"하는 걸 빠뜨렸을 가능성이 큽니다.
-- **GitHub Actions가 자막을 못 받아옴**: yt-dlp는 가끔 유튜브 정책 변경에 영향을 받습니다. Actions 로그를 확인하고, 그래도 안되면 yt-dlp를 최신 버전으로 올려보세요 (`pip install -U yt-dlp`).
-- **커밋/푸시가 실패함**: 리포지토리 Settings → Actions → General → "Workflow permissions"에서 "Read and write permissions"를 선택해야 합니다.
+## 매번 사용
 
-자세한 키 발급, Secrets 등록, Pages 활성화 방법은 [SETUP.md](./SETUP.md)를 확인하세요.
+1. [당잠사 뉴스 요약 DB](https://app.notion.com/p/e8aba82c838c4a89a7680a49f54ac599)에
+   새 행을 만들고 `영상URL`에 YouTube 영상 주소를 넣고 `요약 요청`을 체크합니다.
+   제목은 임시로 적어도 됩니다. 영상 게시 시각을 확인할 수 없는 경우 `날짜`에
+   방송의 한국 날짜를 입력합니다.
+2. PC에서 `MarketNews.bat`를 더블클릭합니다. PC가 자막을 받아 저장소에
+   커밋하고 푸시하면 Actions가 자동 실행됩니다.
+3. Notion `처리 상태`가 `완료`가 되면 같은 행에 요약이 채워집니다.
+   오류 시 `실패`와 Actions 로그를 확인합니다. 재시도는 Actions에서
+   `Requested market news summaries`를 수동 실행할 수 있습니다.
+
+한국어 자막 자체가 제공되지 않거나 집 PC에서도 YouTube 접근이 막히면 추출은
+실패합니다. 브라우저 쿠키는 필요할 때 PC에서 직접 읽으며 GitHub Secret으로
+전송하지 않습니다. 요청 JSON에는 영상 자막 원문이 담겨 공개 저장소에 커밋됩니다.
+민감한 비공개 영상에는 사용하지 마세요.
